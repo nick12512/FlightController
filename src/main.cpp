@@ -1,44 +1,68 @@
 //Main.CPP
-
+#include "Debug.h"
 #include <Arduino.h>
 #include "DataCollection.h"
 
 #define DEBUG_SERIAL Serial
 
+int refresh_rate = 10; // Refresh Rate in Hz
+float update_time = 1000/refresh_rate; //refresh rate in millis
+// Create Sensor Data Struct in order to store all data
 SensorData rocketData;
 
 void setup() {
   DEBUG_SERIAL.begin(115200);
+  //Initialize IMU, Altimeter, and GPS
   InitIMU();
   InitAlt();
   InitGPS();
+  
 }
+
+
+
 
 void loop() {
-  getIMU(rocketData);
-  getGPS(rocketData);
+  //update loop time
+  unsigned long now = millis();
+  unsigned long dt = now - rocketData.last_update;
+ 
 
-  DEBUG_SERIAL.print("Q: ");
-  DEBUG_SERIAL.print(rocketData.qw, 3); DEBUG_SERIAL.print(",");
-  DEBUG_SERIAL.print(rocketData.qx, 3); DEBUG_SERIAL.print(",");
-  DEBUG_SERIAL.print(rocketData.qy, 3); DEBUG_SERIAL.print(",");
-  DEBUG_SERIAL.print(rocketData.qz, 3); DEBUG_SERIAL.print(" | ");
 
-  DEBUG_SERIAL.print("Alt: ");
-  DEBUG_SERIAL.print(rocketData.altitude, 2); DEBUG_SERIAL.print(" m | ");
+  // check if at correct update time (hz)
+  if (dt >= update_time) {
+    rocketData.timestamp = now;
 
-  if (rocketData.gpsFix) {
-    DEBUG_SERIAL.print("GPS: ");
-    DEBUG_SERIAL.print(rocketData.gpsLat, 4); DEBUG_SERIAL.print(",");
-    DEBUG_SERIAL.print(rocketData.gpsLon, 4); DEBUG_SERIAL.print(" | ");
-    DEBUG_SERIAL.print("Speed: ");
-    DEBUG_SERIAL.print(rocketData.gpsSpeed, 2); DEBUG_SERIAL.print(" kn | ");
-    DEBUG_SERIAL.print("GPS Alt: ");
-    DEBUG_SERIAL.print(rocketData.gpsAlt, 2);
+    // Calculate Hz based on time since last update
+    if (dt > 0) {
+      rocketData.updateHz = 1000.0f / dt;
+    }
+    // Get Data
+    getIMU(rocketData);
+    getGPS(rocketData);
+
+    rocketData.last_update = now;
+
+    // Debug Print
+    printSensorData(rocketData);
+
+
+    // clear serial buffer
+    while (Serial.available()) {
+      Serial.read(); // clears unread incoming bytes
+    }
+    
+    
   }
 
-  DEBUG_SERIAL.println();
-  delay(100);  // Adjust for desired update rate
+  delay(1);
+
+  
+  
 }
+
+
+
+
 
 
